@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/ipc.h>; 
+#include <sys/ipc.h>
+#include <string.h>
 #include <sys/msg.h>
 #include <sys/wait.h>
 
@@ -18,19 +19,37 @@ typedef struct {
 	
 int msgqid;
 
+
+void emisor()
+{
+	MSGTYPE m;
+	m.msg_type=1;
+	strcpy(m.mensaje,"Fin");
+	msgsnd(msgqid,&m,sizeof(MSGTYPE)-sizeof(long),0);
+}
+
+void receptor()
+{
+	MSGTYPE m;	// Donde voy a recibir el mensaje	
+	msgrcv(msgqid,&m,sizeof(MSGTYPE)-sizeof(long),1,0);
+	
+	return;
+}
+
+
 void proceso(int i)
 {
 	int k;
 	int l;
 	for(k=0;k<CICLOS;k++)
 	{
-		semwait (mutex);
+		receptor();
 		// Entrada a la sección crítica
 		printf("Entra %s",pais[i]);
 		fflush(stdout);
 		sleep(rand()%3);
 		printf("- %s Sale\n",pais[i]);
-		semsignal (mutex);
+		emisor();
 		// Salida de la sección crítica
 		// Espera aleatoria fuera de la sección crítica
 		sleep(rand()%3);
@@ -48,6 +67,7 @@ int main()
 	
 	// Crear un buzón o cola de mensajes
 	msgqid=msgget(0x1234,0666|IPC_CREAT);
+	emisor();
 	
 	for(i=0;i<3;i++)
 	{
@@ -61,6 +81,7 @@ int main()
 	}
 	for(i=0;i<3;i++)
 		pid = wait(&status);
-	semctl(mutex,0,IPC_RMID,0);
+		
+	msgctl(msgqid,IPC_RMID,NULL);
 	printf("Procesos terminados\n");
 }
